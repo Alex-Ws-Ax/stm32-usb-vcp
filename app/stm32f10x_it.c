@@ -22,7 +22,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_it.h"
-#include "usb_vcp.h"
+#include "usb_lib.h"
+#include "usb_pwr.h"
 #include "usb_istr.h"
 /** @addtogroup STM32F10x_StdPeriph_Examples
   * @{
@@ -206,11 +207,11 @@ void USART2_IRQHandler(void)
   TIM_SetCounter(TIM2, 0);
   
   /* If overrun condition occurs, clear the ORE flag and recover communication */
-  if (USART_GetFlagStatus(EVAL_COM1, USART_FLAG_ORE) != RESET)
+  if (USART_GetFlagStatus(VCP_PORT, USART_FLAG_ORE) != RESET)
   {
-    (void)USART_ReceiveData(EVAL_COM1);
+    (void)USART_ReceiveData(VCP_PORT);
   }
-  if (USART_GetITStatus(EVAL_COM1, USART_IT_RXNE) != RESET)
+  if (USART_GetITStatus(VCP_PORT, USART_IT_RXNE) != RESET)
   {
     /* Send the received data to the PC Host*/
     USART_To_USB_Send_Data();
@@ -218,6 +219,7 @@ void USART2_IRQHandler(void)
 #else
   if (USART_GetITStatus(VCP_PORT, USART_IT_RXNE) != RESET)
   {
+    USART_ClearITPendingBit(VCP_PORT,USART_IT_RXNE);
     /* Send the received data to the PC Host*/
     USART_To_USB_Send_Data();
   }
@@ -225,10 +227,12 @@ void USART2_IRQHandler(void)
   /* If overrun condition occurs, clear the ORE flag and recover communication */
   if (USART_GetFlagStatus(VCP_PORT, USART_FLAG_ORE) != RESET)
   {
+      USART_ClearITPendingBit(VCP_PORT,USART_FLAG_ORE);
     (void)USART_ReceiveData(VCP_PORT);
   }
+  #endif /* VCP_RX_BY_DMA */
 }
-#endif /* VCP_RX_BY_DMA */
+
 
 #ifdef VCP_RX_BY_DMA
 

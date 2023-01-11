@@ -56,7 +56,7 @@ ErrorStatus HSEStartUpStatus;
 EXTI_InitTypeDef EXTI_InitStructure;
 
 #ifdef VCP_RX_BY_DMA
-DMA_InitTypeDef  DMA_InitStructure;
+    DMA_InitTypeDef  DMA_InitStructure;
 #endif
 
 uint32_t USART_Rx_ptr_in = 0;
@@ -64,7 +64,7 @@ uint32_t USART_Rx_ptr_out = 0;
 uint32_t USART_Rx_length  = 0;
 
 uint8_t  USB_Tx_State = 0;
-static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len);
+static void IntToUnicode(uint32_t value, uint8_t *pbuf, uint8_t len);
 /* Extern variables ----------------------------------------------------------*/
 
 extern LINE_CODING linecoding;
@@ -78,20 +78,20 @@ extern __IO uint32_t bDeviceState;
 *******************************************************************************/
 void Leave_LowPowerMode(void)
 {
-  DEVICE_INFO *pInfo = &Device_Info;
+    DEVICE_INFO *pInfo = &Device_Info;
 
-  /* Set the device state to the correct state */
-  if (pInfo->Current_Configuration != 0)
-  {
-    /* Device configured */
-    bDeviceState = CONFIGURED;
-  }
-  else
-  {
-    bDeviceState = ATTACHED;
-  }
-  /*Enable SystemCoreClock*/
-  SystemInit();
+    /* Set the device state to the correct state */
+    if (pInfo->Current_Configuration != 0)
+    {
+        /* Device configured */
+        bDeviceState = CONFIGURED;
+    }
+    else
+    {
+        bDeviceState = ATTACHED;
+    }
+    /*Enable SystemCoreClock*/
+    SystemInit();
 }
 
 
@@ -104,21 +104,21 @@ void Leave_LowPowerMode(void)
 *******************************************************************************/
 void Get_SerialNum(void)
 {
-  uint32_t Device_Serial0, Device_Serial1, Device_Serial2;
+    uint32_t Device_Serial0, Device_Serial1, Device_Serial2;
 
-  Device_Serial0 = *(uint32_t*)ID1;
-  Device_Serial1 = *(uint32_t*)ID2;
-  Device_Serial2 = *(uint32_t*)ID3;  
+    Device_Serial0 = *(uint32_t *)ID1;
+    Device_Serial1 = *(uint32_t *)ID2;
+    Device_Serial2 = *(uint32_t *)ID3;
 
-  Device_Serial0 += Device_Serial2;
+    Device_Serial0 += Device_Serial2;
 
-  if (Device_Serial0 != 0)
-  {
-    IntToUnicode (Device_Serial0, &Virtual_Com_Port_StringSerial[2] , 8);
-    IntToUnicode (Device_Serial1, &Virtual_Com_Port_StringSerial[18], 4);
-  }
+    if (Device_Serial0 != 0)
+    {
+        IntToUnicode(Device_Serial0, &Virtual_Com_Port_StringSerial[2], 8);
+        IntToUnicode(Device_Serial1, &Virtual_Com_Port_StringSerial[18], 4);
+    }
 }
-void USB_Cable_Config (FunctionalState NewState)
+void USB_Cable_Config(FunctionalState NewState)
 {
 }
 /*******************************************************************************
@@ -128,39 +128,45 @@ void USB_Cable_Config (FunctionalState NewState)
 * Output         : None.
 * Return         : None.
 *******************************************************************************/
-static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len)
+static void IntToUnicode(uint32_t value, uint8_t *pbuf, uint8_t len)
 {
-  uint8_t idx = 0;
-  
-  for( idx = 0 ; idx < len ; idx ++)
-  {
-    if( ((value >> 28)) < 0xA )
+    uint8_t idx = 0;
+
+    for (idx = 0 ; idx < len ; idx ++)
     {
-      pbuf[ 2* idx] = (value >> 28) + '0';
+        if (((value >> 28)) < 0xA)
+        {
+            pbuf[ 2 * idx] = (value >> 28) + '0';
+        }
+        else
+        {
+            pbuf[2 * idx] = (value >> 28) + 'A' - 10;
+        }
+
+        value = value << 4;
+
+        pbuf[ 2 * idx + 1] = 0;
     }
-    else
-    {
-      pbuf[2* idx] = (value >> 28) + 'A' - 10; 
-    }
-    
-    value = value << 4;
-    
-    pbuf[ 2* idx + 1] = 0;
-  }
 }
 
 void USB_HwInit(void)
 {
     GPIO_InitTypeDef  GPIO_InitStructure;
-    
+
+#ifdef VCP_RX_BY_DMA
+    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+    NVIC_InitTypeDef NVIC_InitStructure;
+#endif
+
+
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-    
+
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 | GPIO_Pin_12;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-        GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_InitStructure.GPIO_Pin  = GPIO_Pin_2;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
@@ -168,49 +174,78 @@ void USB_HwInit(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
     GPIO_InitStructure.GPIO_Pin  = GPIO_Pin_3;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-    
+
     /*SET PA11,12 for USB: USB_DM,DP*/
 //    GPIO_PinAFConfig(GPIOA, GPIO_PinSource11, GPIO_AF_14);
 //    GPIO_PinAFConfig(GPIOA, GPIO_PinSource12, GPIO_AF_14);
-    
+
     EXTI_ClearITPendingBit(EXTI_Line18);
     EXTI_InitStructure.EXTI_Line = EXTI_Line18;
     EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
-    
-      /* Select USBCLK source */
-  RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
-  
-  /* Enable the USB clock */
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_USB, ENABLE);
+
+    /* Select USBCLK source */
+    RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
+
+    /* Enable the USB clock */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USB, ENABLE);
+
+#ifdef VCP_RX_BY_DMA
+    /********************************************************************************/
+    /*      Configure Timer. It will be used (instead of SOF) to check USART buffer */
+    /********************************************************************************/
+
+    /* Enable the TIM2 gloabal Interrupt */
+    NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    /* TIM2 clock enable */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+
+    /* Time base configuration */
+    TIM_TimeBaseStructure.TIM_Period = 348;/* This will be changed when the COM port is configured */
+    TIM_TimeBaseStructure.TIM_Prescaler = 31;// 32 - 1
+    TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+
+    /* TIM IT enable */
+    TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
+#endif
+
 }
 
 void USB_Interrupts_Init(void)
 {
     NVIC_InitTypeDef NVIC_InitStructure = {0};
-    
-  /* 2 bit for pre-emption priority, 2 bits for subpriority */
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);  
-  NVIC_InitStructure.NVIC_IRQChannel = USB_LP_CAN1_RX0_IRQn;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&NVIC_InitStructure);
-  
-    /* Enable the USB Wake-up interrupt */
-  NVIC_InitStructure.NVIC_IRQChannel = USBWakeUp_IRQn;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-  NVIC_Init(&NVIC_InitStructure);
 
-  /* Enable USART Interrupt */
-  NVIC_InitStructure.NVIC_IRQChannel = VCP_PORT_IRQ;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-  NVIC_Init(&NVIC_InitStructure);
-  
-//  NVIC_InitStructure.NVIC_IRQChannel = USARTx_TX_DMA_IRQ;
-//  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-//  NVIC_Init(&NVIC_InitStructure);
+    /* 2 bit for pre-emption priority, 2 bits for subpriority */
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+    NVIC_InitStructure.NVIC_IRQChannel = USB_LP_CAN1_RX0_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    /* Enable the USB Wake-up interrupt */
+    NVIC_InitStructure.NVIC_IRQChannel = USBWakeUp_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_Init(&NVIC_InitStructure);
+
+    /* Enable USART Interrupt */
+    NVIC_InitStructure.NVIC_IRQChannel = VCP_PORT_IRQ;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_Init(&NVIC_InitStructure);
+
+#ifdef VCP_RX_BY_DMA
+    NVIC_InitStructure.NVIC_IRQChannel = USARTx_TX_DMA_IRQ;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_Init(&NVIC_InitStructure);
+#endif
 }
 void USB_PreInit(void)
 {

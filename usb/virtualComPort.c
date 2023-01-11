@@ -82,14 +82,13 @@ static bool bDelayed_Dma=FALSE;
 
 #else /* !VCP_RX_BY_DMA */
 uint8_t  USART_Rx_Buffer[USART_RX_DATA_SIZE]; 
-extern uint32_t USART_Rx_ptr_in ;
-extern uint32_t USART_Rx_ptr_out ;
-extern uint32_t USART_Rx_length ;
 extern uint8_t  USB_Tx_State ;
 uint16_t USB_Tx_length;
 uint16_t USB_Tx_ptr;
 #endif /* VCP_RX_BY_DMA */
-
+extern uint32_t USART_Rx_ptr_in ;
+extern uint32_t USART_Rx_ptr_out ;
+extern uint32_t USART_Rx_length ;
 /* Extern variables ----------------------------------------------------------*/
 extern LINE_CODING linecoding;
 
@@ -121,7 +120,7 @@ void VCP_StartDMA(void)
   VCP_RX_DMA_CHANNEL->CCR |= CCR_ENABLE_Set;
   
 /* Enable the VCP_USART */
-  VCP_USART->CR1 |= CR1_UE_Set;
+  VCP_PORT->CR1 |= CR1_UE_Set;
 }
 
 /*******************************************************************************
@@ -282,7 +281,7 @@ void DMA_COMInit(USART_InitTypeDef* USART_InitStruct)
   /* Global clear of RX DMA channel interrupts */
   DMA1->IFCR = VCP_RX_DMA_FLAG_GL;
   
-  DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(VCP_USART->DR);
+  DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(VCP_PORT->DR);
   DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)USART_Rx_Buffer[bufId_To_Dma];
   DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
   DMA_InitStructure.DMA_BufferSize = USART_RX_DATA_SIZE/2; /* Double buffer: DMA owns only one buffer at a time */
@@ -310,12 +309,12 @@ void DMA_COMInit(USART_InitTypeDef* USART_InitStruct)
   NVIC_Init(&NVIC_InitStructure);
   
   /* Configure the DMA trigger by USARTx_RX */
-  USART_DMACmd(VCP_USART, USART_DMAReq_Rx, ENABLE);
+  USART_DMACmd(VCP_PORT, USART_DMAReq_Rx, ENABLE);
   
   VCP_StartDMA(); 
   
   /* Enable USART */
-  USART_Cmd(VCP_USART, ENABLE);
+  USART_Cmd(VCP_PORT, ENABLE);
 #endif
 
 }
@@ -481,7 +480,7 @@ void USB_To_USART_Send_Data(uint8_t* data_buffer, uint8_t Nb_bytes)
   DMA_Init(USARTx_TX_DMA_CHANNEL, &DMA_InitStructure);
   
   /* Enable the USART DMA requests */
-  USART_DMACmd(EVAL_COM1, USART_DMAReq_Tx, ENABLE);
+  USART_DMACmd(VCP_PORT, USART_DMAReq_Tx, ENABLE);
   
   /* Enable DMA TC interrupt */
   DMA_ITConfig(USARTx_TX_DMA_CHANNEL, DMA_IT_TC, ENABLE);
@@ -495,6 +494,7 @@ void USB_To_USART_Send_Data(uint8_t* data_buffer, uint8_t Nb_bytes)
   {
     USART_SendData(VCP_PORT, *(data_buffer + i));
     while(USART_GetFlagStatus(VCP_PORT, USART_FLAG_TXE) == RESET); 
+//      delay(100);
   }
 #endif
 }
@@ -639,11 +639,11 @@ void USART_To_USB_Send_Data(void)
   
   if (linecoding.datatype == 7)
   {
-    USART_Rx_Buffer[USART_Rx_ptr_in] = USART_ReceiveData(EVAL_COM1) & 0x7F;
+    USART_Rx_Buffer[bufId_To_Usb][USART_Rx_ptr_in] = USART_ReceiveData(VCP_PORT) & 0x7F;
   }
   else if (linecoding.datatype == 8)
   {
-    USART_Rx_Buffer[USART_Rx_ptr_in] = USART_ReceiveData(EVAL_COM1);
+    USART_Rx_Buffer[bufId_To_Usb][USART_Rx_ptr_in] = USART_ReceiveData(VCP_PORT);
   }
   
   USART_Rx_ptr_in++;
